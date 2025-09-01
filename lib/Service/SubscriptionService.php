@@ -213,7 +213,7 @@ class SubscriptionService {
      * Get subscription info from Deployer/Webshop
      */
     private function getSubscriptionFromDeployer(string $userId): ?string {
-        // This would need to be implemented based on how you track subscriptions
+        // If subscriptions are stored in deployer or webshop, implement API call here
         // For now, return null
         return null;
     }
