@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<info xmlns:xsi= "http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>subscriptionmanager</id>
+    <name>Subscription Manager</name>
+    <summary>Manage your subscription status</summary>
+    <description><![CDATA[View your subscription status and manage your account through the webshop]]></description>
+    <version>1.0.0</version>
+    <licence>agpl</licence>
+    <author mail="info@example.com" homepage="https://example.com">Your Name</author>
+    <namespace>SubscriptionManager</namespace>
+    <category>organization</category>
+    <bugs>https://github.com/yourusername/subscriptionmanager/issues</bugs>
+    <dependencies>
+        <nextcloud min-version="30" max-version="30"/>
+    </dependencies>
+    <navigations>
+        <navigation>
+            <name>Subscription</name>
+            <route>subscriptionmanager.page.index</route>
+            <icon>subscriptionmanager.svg</icon>
+            <order>10</order>
+        </navigation>
+    </navigations>
+    <settings>
+        <admin>OCA\SubscriptionManager\Settings\Admin</admin>
+    </settings>
+</info>
