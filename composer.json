@@ -1,0 +1,11 @@
+{
+    "name": "nextcloud/subscriptionmanager",
+    "description": "Subscription Manager for Nextcloud",
+    "type": "project",
+    "license": "AGPL-3.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "OCA\\SubscriptionManager\\": "lib/"
+        }
+    }
+}
