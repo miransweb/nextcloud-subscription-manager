@@ -17,28 +17,39 @@ document.addEventListener('DOMContentLoaded', function() {
             default_trial_days: document.getElementById('default-trial-days').value
         };
         
-        // Save each setting
-        const promises = Object.keys(settings).map(key => {
-            return OCP.AppConfig.setValue('subscriptionmanager', key, settings[key]);
-        });
+       // Save settings via AJAX
+        const url = OC.generateUrl('/apps/subscriptionmanager/admin/settings');
         
-        Promise.all(promises)
-            .then(() => {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'requesttoken': OC.requestToken
+            },
+            body: JSON.stringify(settings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
                 msgElement.textContent = t('subscriptionmanager', 'Settings saved');
                 msgElement.classList.add('success');
-                setTimeout(() => {
-                    msgElement.textContent = '';
-                    msgElement.classList.remove('success');
-                }, 3000);
-            })
-            .catch(error => {
+            } else {
                 msgElement.textContent = t('subscriptionmanager', 'Error saving settings');
                 msgElement.classList.add('error');
-                console.error('Error saving settings:', error);
-            })
-            .finally(() => {
-                saveButton.disabled = false;
-            });
+            }
+            setTimeout(() => {
+                msgElement.textContent = '';
+                msgElement.classList.remove('success', 'error');
+            }, 3000);
+        })
+        .catch(error => {
+            msgElement.textContent = t('subscriptionmanager', 'Error saving settings');
+            msgElement.classList.add('error');
+            console.error('Error saving settings:', error);
+        })
+        .finally(() => {
+            saveButton.disabled = false;
+        });
     });
     
     // Generate shared secret
@@ -52,39 +63,43 @@ document.addEventListener('DOMContentLoaded', function() {
         testButton.disabled = true;
         testResults.innerHTML = '<p>' + t('subscriptionmanager', 'Testing connection...') + '</p>';
         
-        // Test Deployer API connection
-        fetch(OC.generateUrl('/apps/subscriptionmanager/api/test-connection'))
-            .then(response => response.json())
-            .then(data => {
-                let html = '<ul>';
-                
-                if (data.deployer_api) {
-                    html += '<li class="success">✓ ' + t('subscriptionmanager', 'Deployer API: Connected') + '</li>';
-                } else {
-                    html += '<li class="error">✗ ' + t('subscriptionmanager', 'Deployer API: Failed') + '</li>';
-                }
-                
-                if (data.webshop_reachable) {
-                    html += '<li class="success">✓ ' + t('subscriptionmanager', 'Webshop: Reachable') + '</li>';
-                } else {
-                    html += '<li class="error">✗ ' + t('subscriptionmanager', 'Webshop: Unreachable') + '</li>';
-                }
-                
-                html += '</ul>';
-                
-                if (data.error) {
-                    html += '<p class="error">' + data.error + '</p>';
-                }
-                
-                testResults.innerHTML = html;
-            })
-            .catch(error => {
-                testResults.innerHTML = '<p class="error">' + t('subscriptionmanager', 'Connection test failed') + '</p>';
-                console.error('Test connection error:', error);
-            })
-            .finally(() => {
-                testButton.disabled = false;
-            });
+        // Test connections
+        fetch(OC.generateUrl('/apps/subscriptionmanager/admin/test-connection'), {
+            headers: {
+                'requesttoken': OC.requestToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            let html = '<ul>';
+            
+            if (data.deployer_api) {
+                html += '<li class="success">✓ ' + t('subscriptionmanager', 'Deployer API: Connected') + '</li>';
+            } else {
+                html += '<li class="error">✗ ' + t('subscriptionmanager', 'Deployer API: Failed') + '</li>';
+            }
+            
+            if (data.webshop_reachable) {
+                html += '<li class="success">✓ ' + t('subscriptionmanager', 'Webshop: Reachable') + '</li>';
+            } else {
+                html += '<li class="error">✗ ' + t('subscriptionmanager', 'Webshop: Unreachable') + '</li>';
+            }
+            
+            html += '</ul>';
+            
+            if (data.error) {
+                html += '<p class="error">' + data.error + '</p>';
+            }
+            
+            testResults.innerHTML = html;
+        })
+        .catch(error => {
+            testResults.innerHTML = '<p class="error">' + t('subscriptionmanager', 'Connection test failed') + '</p>';
+            console.error('Test connection error:', error);
+        })
+        .finally(() => {
+            testButton.disabled = false;
+        });
     });
     
     function generateRandomString(length) {
