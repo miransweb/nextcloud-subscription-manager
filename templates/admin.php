@@ -46,19 +46,22 @@ style('subscriptionmanager', 'admin');
         </div>
         
         <div class="form-group">
-            <label for="shared-secret"><?php p($l->t('Shared Secret')); ?></label>
-            <input type="password" 
-                   id="shared-secret" 
-                   name="shared_secret" 
-                   value="<?php p($_['shared_secret']); ?>"
-                   placeholder="••••••••••••••••" />
-            <button type="button" id="generate-secret" class="button">
-                <?php p($l->t('Generate')); ?>
-            </button>
-            <p class="settings-hint">
-                <?php p($l->t('Shared secret for secure communication with the webshop')); ?>
-            </p>
-        </div>
+    <label for="shared-secret"><?php p($l->t('Shared Secret')); ?></label>
+    <input type="password" 
+           id="shared-secret" 
+           name="shared_secret" 
+           value="<?php p($_['shared_secret']); ?>"
+           placeholder="••••••••••••••••" />
+    <button type="button" id="generate-secret" class="button">
+        <?php p($l->t('Generate')); ?>
+    </button>
+    <button type="button" id="toggle-secret" class="button">
+        <?php p($l->t('Show')); ?>
+    </button>
+    <p class="settings-hint">
+        <?php p($l->t('Shared secret for secure communication with the webshop. Copy this to your WordPress settings.')); ?>
+    </p>
+</div>
         
         <div class="form-group">
             <label for="default-trial-days"><?php p($l->t('Default Trial Days')); ?></label>

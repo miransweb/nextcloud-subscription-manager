@@ -111,3 +111,17 @@ document.addEventListener('DOMContentLoaded', function() {
         return result;
     }
 });
+
+// Toggle secret visibility
+document.getElementById('toggle-secret').addEventListener('click', function() {
+    const secretInput = document.getElementById('shared-secret');
+    const toggleButton = document.getElementById('toggle-secret');
+    
+    if (secretInput.type === 'password') {
+        secretInput.type = 'text';
+        toggleButton.textContent = t('subscriptionmanager', 'Hide');
+    } else {
+        secretInput.type = 'password';
+        toggleButton.textContent = t('subscriptionmanager', 'Show');
+    }
+});
