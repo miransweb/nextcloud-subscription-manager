@@ -7,7 +7,7 @@
     <description><![CDATA[View your subscription status and manage your account through the webshop]]></description>
     <version>1.0.0</version>
     <licence>agpl</licence>
-    <author mail="info@miransweb.com" homepage="https://miransweb.com">Your Name</author>
+    <author mail="info@miransweb.com" homepage="https://miransweb.com">MiransWeb</author>
     <namespace>SubscriptionManager</namespace>
     <category>organization</category>
     <bugs>https://github.com/miransweb/nextcloud-subscription-manager/issues</bugs>
