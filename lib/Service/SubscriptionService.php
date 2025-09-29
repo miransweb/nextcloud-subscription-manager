@@ -29,84 +29,132 @@ class SubscriptionService {
     }
 
     /**
-     * Get subscription status for current user
-     */
-    public function getSubscriptionStatus(): array {
-        $user = $this->userSession->getUser();
-        if (!$user) {
-            throw new \Exception('User not logged in');
-        }
+ * Get subscription status for current user
+ */
+public function getSubscriptionStatus(): array {
+    $user = $this->userSession->getUser();
+    if (!$user) {
+        throw new \Exception('User not logged in');
+    }
 
-        $userId = $user->getUID();
-        
-        // Check user's Nextcloud groups to determine status
-        $userGroups = \OC::$server->getGroupManager()->getUserGroupIds($user);
-        
-        $status = 'unknown';
-        $isPaid = false;
-        $isTrial = false;
-        $isUnsubscribed = false;
-        
-        // Check which TGC group the user belongs to
-        foreach ($userGroups as $group) {
-            if ($group === 'tgcusers_paid') {
-                $status = 'paid';
-                $isPaid = true;
-            } elseif ($group === 'tgcusers_trial') {
-                $status = 'trial';
-                $isTrial = true;
-            } elseif ($group === 'tgcusers_unsubscribed') {
-                $status = 'unsubscribed';
-                $isUnsubscribed = true;
-            }
-        }
-        
-        // If no TGC group found, assume trial
-        if ($status === 'unknown') {
+    $userId = $user->getUID();
+    
+    // Check user's Nextcloud groups to determine status
+    $userGroups = \OC::$server->getGroupManager()->getUserGroupIds($user);
+    
+    $status = 'unknown';
+    $isPaid = false;
+    $isTrial = false;
+    $isUnsubscribed = false;
+    
+    // Check which TGC group the user belongs to
+    foreach ($userGroups as $group) {
+        if ($group === 'tgcusers_paid') {
+            $status = 'paid';
+            $isPaid = true;
+        } elseif ($group === 'tgcusers_trial') {
             $status = 'trial';
             $isTrial = true;
+        } elseif ($group === 'tgcusers_unsubscribed') {
+            $status = 'unsubscribed';
+            $isUnsubscribed = true;
         }
-        
-        // Calculate trial days remaining
-        $trialDaysRemaining = null;
-        $defaultTrialDays = intval($this->appConfig->getAppValue('default_trial_days', '14'));
-        
-        if ($isTrial) {
-            $accountCreated = $this->getAccountCreationDate($userId);
-            if ($accountCreated) {
-                $created = new \DateTime($accountCreated);
-                $expires = clone $created;
-                $expires->add(new \DateInterval('P' . $defaultTrialDays . 'D'));
-                $now = new \DateTime();
-                
-                if ($now < $expires) {
-                    $diff = $now->diff($expires);
-                    $trialDaysRemaining = $diff->days;
-                } else {
-                    $trialDaysRemaining = 0;
-                }
+    }
+    
+    // If no TGC group found, assume trial
+    if ($status === 'unknown') {
+        $status = 'trial';
+        $isTrial = true;
+    }
+    
+    // Get actual quota from Deployer API
+    $quota = '1GB'; // Default fallback
+    if ($isPaid || $isTrial) {
+        $quotaFromApi = $this->getQuotaFromDeployer($userId);
+        if ($quotaFromApi) {
+            $quota = $quotaFromApi;
+        } else {
+            // If API call fails, use local quota as fallback
+            $quota = $this->getUserQuota($userId);
+        }
+    }
+    
+    // Calculate trial days remaining
+    $trialDaysRemaining = null;
+    $defaultTrialDays = intval($this->appConfig->getAppValue('default_trial_days', '14'));
+    
+    if ($isTrial) {
+        $accountCreated = $this->getAccountCreationDate($userId);
+        if ($accountCreated) {
+            $created = new \DateTime($accountCreated);
+            $expires = clone $created;
+            $expires->add(new \DateInterval('P' . $defaultTrialDays . 'D'));
+            $now = new \DateTime();
+            
+            if ($now < $expires) {
+                $diff = $now->diff($expires);
+                $trialDaysRemaining = $diff->days;
+            } else {
+                $trialDaysRemaining = 0;
             }
         }
+    }
+    
+    // Try to get subscription info from Deployer API for paid users
+    $subscriptionId = null;
+    if ($isPaid) {
+        $subscriptionId = $this->getSubscriptionFromDeployer($userId);
+    }
+    
+    return [
+        'status' => $status,
+        'quota' => $quota,
+        'expires_at' => null,
+        'trial_expires_at' => $isTrial && $accountCreated ? date('Y-m-d', strtotime($accountCreated . ' + ' . $defaultTrialDays . ' days')) : null,
+        'trial_days_remaining' => $trialDaysRemaining,
+        'subscription_id' => $subscriptionId,
+        'can_upgrade' => !$isPaid,
+        'is_trial' => $isTrial,
+        'is_paid' => $isPaid,
+        'is_unsubscribed' => $isUnsubscribed
+    ];
+}
+
+/**
+ * Get quota from Deployer API
+ */
+private function getQuotaFromDeployer(string $userId): ?string {
+    try {
+        $deployerUrl = $this->appConfig->getAppValue('deployer_api_url', '');
+        $apiKey = $this->appConfig->getAppValue('deployer_api_key', '');
         
-        // Try to get subscription info from Deployer API for paid users
-        $subscriptionId = null;
-        if ($isPaid) {
-            $subscriptionId = $this->getSubscriptionFromDeployer($userId);
+        if (empty($deployerUrl) || empty($apiKey)) {
+            return null;
         }
         
-        return [
-            'status' => $status,
-            'quota' => $this->getUserQuota($userId),
-            'expires_at' => null, // Could be retrieved from WooCommerce subscription
-            'trial_expires_at' => $isTrial && $accountCreated ? date('Y-m-d', strtotime($accountCreated . ' + ' . $defaultTrialDays . ' days')) : null,
-            'trial_days_remaining' => $trialDaysRemaining,
-            'subscription_id' => $subscriptionId,
-            'can_upgrade' => !$isPaid,
-            'is_trial' => $isTrial,
-            'is_paid' => $isPaid,
-            'is_unsubscribed' => $isUnsubscribed
-        ];
+        // Get user info from Deployer
+        $client = $this->clientService->newClient();
+        $response = $client->get($deployerUrl . '/api/users/' . $userId . '/', [
+            'headers' => [
+                'API-KEY' => $apiKey,
+                'Accept' => 'application/json'
+            ],
+            'timeout' => 10
+        ]);
+        
+        $data = json_decode($response->getBody(), true);
+        
+        // Return the quota if found
+        if (isset($data['quota'])) {
+            return $data['quota'];
+        }
+        
+        return null;
+    } catch (\Exception $e) {
+        \OC::$server->getLogger()->error('Failed to get quota from Deployer: ' . $e->getMessage(), ['app' => 'subscriptionmanager']);
+        return null;
     }
+}
 
     /**
      * Generate webshop URL with user data
@@ -217,4 +265,5 @@ class SubscriptionService {
         // For now, return null
         return null;
     }
+    
 }
