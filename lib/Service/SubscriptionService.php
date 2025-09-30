@@ -126,25 +126,40 @@ public function getSubscriptionStatus(): array {
 private function getQuotaFromDeployer(string $userId): ?string {
     try {
         $deployerUrl = $this->appConfig->getAppValue('deployer_api_url', '');
-        $apiKey = $this->appConfig->getAppValue('deployer_api_key', '');
+        $deployerApiKey = $this->appConfig->getAppValue('deployer_api_key', '');
+        $serverUrl = $this->getServerUrl();
         
-        if (empty($deployerUrl) || empty($apiKey)) {
+        if (empty($deployerUrl) || empty($deployerApiKey)) {
             return null;
         }
         
-        // Get user info from Deployer
+        // Use the quota check endpoint
         $client = $this->clientService->newClient();
-        $response = $client->get($deployerUrl . '/api/users/' . $userId . '/', [
+        $response = $client->get($deployerUrl . '/api/users/quota/check/', [
             'headers' => [
-                'API-KEY' => $apiKey,
+                'API-KEY' => $deployerApiKey,
                 'Accept' => 'application/json'
             ],
-            'timeout' => 10
+            'query' => [
+                'user_id' => $userId,
+                'server_url' => $serverUrl
+            ],
+            'timeout' => 10,
+            'http_errors' => false
         ]);
         
-        $data = json_decode($response->getBody(), true);
+        $statusCode = $response->getStatusCode();
+        if ($statusCode !== 200) {
+            \OC::$server->getLogger()->warning('Deployer API quota check returned status ' . $statusCode, ['app' => 'subscriptionmanager']);
+            return null;
+        }
         
-        // Return the quota if found
+        $data = json_decode($response->getBody()->getContents(), true);
+        
+        // Log for debugging
+        \OC::$server->getLogger()->debug('Deployer quota check response: ' . json_encode($data), ['app' => 'subscriptionmanager']);
+        
+        // Extract quota from response
         if (isset($data['quota'])) {
             return $data['quota'];
         }

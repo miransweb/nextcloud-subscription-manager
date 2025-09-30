@@ -18,7 +18,7 @@
         <navigation>
             <name>Subscription manager</name>
             <route>subscriptionmanager.page.index</route>
-            <icon>subscriptionmanager.svg</icon>
+            <icon>app.svg</icon>
             <order>10</order>
         </navigation>
     </navigations>
