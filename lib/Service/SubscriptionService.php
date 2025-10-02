@@ -154,7 +154,7 @@ private function getQuotaFromDeployer(string $userId): ?string {
             return null;
         }
         
-        $data = json_decode($response->getBody()->getContents(), true);
+       $data = json_decode($response->getBody(), true);
         
         // Log for debugging
         \OC::$server->getLogger()->debug('Deployer quota check response: ' . json_encode($data), ['app' => 'subscriptionmanager']);
@@ -180,7 +180,7 @@ private function getQuotaFromDeployer(string $userId): ?string {
             throw new \Exception('User not logged in');
         }
 
-        $webshopUrl = $this->appConfig->getAppValue('webshop_url', 'https://thegoodcloud.nl');
+        $webshopUrl = $this->appConfig->getAppValue('webshop_url', 'https://webshop.example.com');
         $serverUrl = $this->getServerUrl();
         
         $params = [
