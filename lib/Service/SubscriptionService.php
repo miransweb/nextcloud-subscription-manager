@@ -135,7 +135,7 @@ private function getQuotaFromDeployer(string $userId): ?string {
         
         // Use the quota check endpoint
         $client = $this->clientService->newClient();
-        $response = $client->get($deployerUrl . '/api/users/quota/check/', [
+        $response = $client->get($deployerUrl . '/api/users/quota/', [
             'headers' => [
                 'API-KEY' => $deployerApiKey,
                 'Accept' => 'application/json'
@@ -180,7 +180,7 @@ private function getQuotaFromDeployer(string $userId): ?string {
             throw new \Exception('User not logged in');
         }
 
-        $webshopUrl = $this->appConfig->getAppValue('webshop_url', 'https://webshop.example.com');
+        $webshopUrl = $this->appConfig->getAppValue('webshop_url', 'https://thegoodcloud.nl');
         $serverUrl = $this->getServerUrl();
         
         $params = [
