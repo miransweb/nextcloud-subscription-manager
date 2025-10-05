@@ -5,17 +5,21 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\AppFramework\Services\IAppConfig;
+use OCP\Http\Client\IClientService;
 use OCA\SubscriptionManager\AppInfo\Application;
 
 class AdminController extends Controller {
     private IAppConfig $appConfig;
+    private IClientService $clientService;
 
     public function __construct(
         IRequest $request,
-        IAppConfig $appConfig
+        IAppConfig $appConfig,
+        IClientService $clientService
     ) {
         parent::__construct(Application::APP_ID, $request);
         $this->appConfig = $appConfig;
+        $this->clientService = $clientService;
     }
 
     /**
@@ -56,34 +60,23 @@ class AdminController extends Controller {
 
         if (!empty($deployerUrl) && !empty($deployerKey)) {
             try {
-                // Remove trailing slash from URL if present
                 $deployerUrl = rtrim($deployerUrl, '/');
+                $client = $this->clientService->newClient();
 
-                $ch = curl_init($deployerUrl . '/healthy/');
-                curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 10,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_MAXREDIRS => 5,
-                    CURLOPT_HTTPHEADER => [
-                        'Authorization: Bearer ' . $deployerKey,
-                        'Content-Type: application/json'
-                    ]
+                $response = $client->get($deployerUrl . '/healthy/', [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $deployerKey,
+                        'Content-Type' => 'application/json'
+                    ],
+                    'timeout' => 10,
+                    'http_errors' => false
                 ]);
 
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $curlError = curl_error($ch);
-                curl_close($ch);
-
-                if ($curlError) {
-                    $results['deployer_error'] = 'cURL error: ' . $curlError;
-                } elseif ($httpCode === 200) {
+                $statusCode = $response->getStatusCode();
+                if ($statusCode === 200) {
                     $results['deployer_api'] = true;
                 } else {
-                    $results['deployer_error'] = 'HTTP ' . $httpCode . ': ' . substr($response, 0, 100);
+                    $results['deployer_error'] = 'HTTP ' . $statusCode;
                 }
             } catch (\Exception $e) {
                 $results['deployer_error'] = $e->getMessage();
@@ -97,45 +90,20 @@ class AdminController extends Controller {
 
         if (!empty($webshopUrl)) {
             try {
-                // Parse URL to get host for DNS check
-                $parsedUrl = parse_url($webshopUrl);
-                $host = $parsedUrl['host'] ?? '';
+                $testUrl = rtrim($webshopUrl, '/') . '/wp-json/wc/v3/system_status';
+                $client = $this->clientService->newClient();
 
-                // Check DNS resolution first
-                $ip = gethostbyname($host);
-                if ($ip === $host) {
-                    $results['webshop_error'] = 'DNS resolution failed for ' . $host;
+                $response = $client->get($testUrl, [
+                    'timeout' => 15,
+                    'http_errors' => false
+                ]);
+
+                $statusCode = $response->getStatusCode();
+                if ($statusCode >= 200 && $statusCode < 500) {
+                    // Accept 401/403 as "reachable" since it means the server responded
+                    $results['webshop_reachable'] = true;
                 } else {
-                    // Try to reach the WooCommerce API health endpoint
-                    $testUrl = rtrim($webshopUrl, '/') . '/wp-json/wc/v3/system_status';
-
-                    $ch = curl_init($testUrl);
-                    curl_setopt_array($ch, [
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_TIMEOUT => 15,
-                        CURLOPT_CONNECTTIMEOUT => 10,
-                        CURLOPT_SSL_VERIFYPEER => false,
-                        CURLOPT_SSL_VERIFYHOST => false,
-                        CURLOPT_FOLLOWLOCATION => true,
-                        CURLOPT_MAXREDIRS => 5,
-                        CURLOPT_USERAGENT => 'Nextcloud-SubscriptionManager/1.0',
-                        CURLOPT_VERBOSE => false
-                    ]);
-
-                    $response = curl_exec($ch);
-                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    $curlError = curl_error($ch);
-                    $curlErrno = curl_errno($ch);
-                    curl_close($ch);
-
-                    if ($curlError) {
-                        $results['webshop_error'] = 'Connection failed (errno ' . $curlErrno . '): ' . $curlError . ' | Resolved IP: ' . $ip;
-                    } elseif ($httpCode >= 200 && $httpCode < 500) {
-                        // Accept 401/403 as "reachable" since it means the server responded
-                        $results['webshop_reachable'] = true;
-                    } else {
-                        $results['webshop_error'] = 'HTTP ' . $httpCode;
-                    }
+                    $results['webshop_error'] = 'HTTP ' . $statusCode;
                 }
             } catch (\Exception $e) {
                 $results['webshop_error'] = $e->getMessage();
