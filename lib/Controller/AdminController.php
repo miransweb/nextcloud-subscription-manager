@@ -56,12 +56,17 @@ class AdminController extends Controller {
 
         if (!empty($deployerUrl) && !empty($deployerKey)) {
             try {
-                $ch = curl_init($deployerUrl . '/healthy');
+                // Remove trailing slash from URL if present
+                $deployerUrl = rtrim($deployerUrl, '/');
+
+                $ch = curl_init($deployerUrl . '/healthy/');
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT => 10,
                     CURLOPT_SSL_VERIFYPEER => false,
                     CURLOPT_SSL_VERIFYHOST => false,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_MAXREDIRS => 5,
                     CURLOPT_HTTPHEADER => [
                         'Authorization: Bearer ' . $deployerKey,
                         'Content-Type: application/json'
@@ -95,11 +100,13 @@ class AdminController extends Controller {
                 $ch = curl_init($webshopUrl);
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 10,
+                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_CONNECTTIMEOUT => 10,
                     CURLOPT_SSL_VERIFYPEER => false,
                     CURLOPT_SSL_VERIFYHOST => false,
                     CURLOPT_NOBODY => true,
-                    CURLOPT_FOLLOWLOCATION => true
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_MAXREDIRS => 5
                 ]);
 
                 curl_exec($ch);
