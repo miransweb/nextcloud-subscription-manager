@@ -97,34 +97,45 @@ class AdminController extends Controller {
 
         if (!empty($webshopUrl)) {
             try {
-                // Try to reach the WooCommerce API health endpoint
-                $testUrl = rtrim($webshopUrl, '/') . '/wp-json/wc/v3/system_status';
+                // Parse URL to get host for DNS check
+                $parsedUrl = parse_url($webshopUrl);
+                $host = $parsedUrl['host'] ?? '';
 
-                $ch = curl_init($testUrl);
-                curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 15,
-                    CURLOPT_CONNECTTIMEOUT => 10,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_MAXREDIRS => 5,
-                    CURLOPT_USERAGENT => 'Nextcloud-SubscriptionManager/1.0'
-                ]);
-
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $curlError = curl_error($ch);
-                $effectiveUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-                curl_close($ch);
-
-                if ($curlError) {
-                    $results['webshop_error'] = 'cURL error: ' . $curlError . ' (URL: ' . $effectiveUrl . ')';
-                } elseif ($httpCode >= 200 && $httpCode < 500) {
-                    // Accept 401/403 as "reachable" since it means the server responded
-                    $results['webshop_reachable'] = true;
+                // Check DNS resolution first
+                $ip = gethostbyname($host);
+                if ($ip === $host) {
+                    $results['webshop_error'] = 'DNS resolution failed for ' . $host;
                 } else {
-                    $results['webshop_error'] = 'HTTP ' . $httpCode;
+                    // Try to reach the WooCommerce API health endpoint
+                    $testUrl = rtrim($webshopUrl, '/') . '/wp-json/wc/v3/system_status';
+
+                    $ch = curl_init($testUrl);
+                    curl_setopt_array($ch, [
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_TIMEOUT => 15,
+                        CURLOPT_CONNECTTIMEOUT => 10,
+                        CURLOPT_SSL_VERIFYPEER => false,
+                        CURLOPT_SSL_VERIFYHOST => false,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_MAXREDIRS => 5,
+                        CURLOPT_USERAGENT => 'Nextcloud-SubscriptionManager/1.0',
+                        CURLOPT_VERBOSE => false
+                    ]);
+
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    $curlError = curl_error($ch);
+                    $curlErrno = curl_errno($ch);
+                    curl_close($ch);
+
+                    if ($curlError) {
+                        $results['webshop_error'] = 'Connection failed (errno ' . $curlErrno . '): ' . $curlError . ' | Resolved IP: ' . $ip;
+                    } elseif ($httpCode >= 200 && $httpCode < 500) {
+                        // Accept 401/403 as "reachable" since it means the server responded
+                        $results['webshop_reachable'] = true;
+                    } else {
+                        $results['webshop_error'] = 'HTTP ' . $httpCode;
+                    }
                 }
             } catch (\Exception $e) {
                 $results['webshop_error'] = $e->getMessage();
