@@ -65,26 +65,33 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
+            console.log('Test results:', data);
             let html = '<ul>';
-            
+
             if (data.deployer_api) {
                 html += '<li class="success">✓ ' + t('subscriptionmanager', 'Deployer API: Connected') + '</li>';
             } else {
                 html += '<li class="error">✗ ' + t('subscriptionmanager', 'Deployer API: Failed') + '</li>';
+                if (data.deployer_error) {
+                    html += '<li class="error-detail">' + data.deployer_error + '</li>';
+                }
             }
-            
+
             if (data.webshop_reachable) {
                 html += '<li class="success">✓ ' + t('subscriptionmanager', 'Webshop: Reachable') + '</li>';
             } else {
                 html += '<li class="error">✗ ' + t('subscriptionmanager', 'Webshop: Unreachable') + '</li>';
+                if (data.webshop_error) {
+                    html += '<li class="error-detail">' + data.webshop_error + '</li>';
+                }
             }
-            
+
             html += '</ul>';
-            
+
             if (data.error) {
                 html += '<p class="error">' + data.error + '</p>';
             }
-            
+
             testResults.innerHTML = html;
         })
         .catch(error => {

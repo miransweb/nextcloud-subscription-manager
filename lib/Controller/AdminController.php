@@ -45,19 +45,23 @@ class AdminController extends Controller {
         $results = [
             'deployer_api' => false,
             'webshop_reachable' => false,
+            'deployer_error' => null,
+            'webshop_error' => null,
             'error' => null
         ];
 
-        try {
-            // Test Deployer API
-            $deployerUrl = $this->appConfig->getAppValue('deployer_api_url', '');
-            $deployerKey = $this->appConfig->getAppValue('deployer_api_key', '');
+        // Test Deployer API
+        $deployerUrl = $this->appConfig->getAppValue('deployer_api_url', '');
+        $deployerKey = $this->appConfig->getAppValue('deployer_api_key', '');
 
-            if (!empty($deployerUrl) && !empty($deployerKey)) {
-                $ch = curl_init($deployerUrl . '/health');
+        if (!empty($deployerUrl) && !empty($deployerKey)) {
+            try {
+                $ch = curl_init($deployerUrl . '/healthy');
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT => 10,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
                     CURLOPT_HTTPHEADER => [
                         'Authorization: Bearer ' . $deployerKey,
                         'Content-Type: application/json'
@@ -66,31 +70,55 @@ class AdminController extends Controller {
 
                 $response = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
                 curl_close($ch);
 
-                $results['deployer_api'] = ($httpCode === 200);
+                if ($curlError) {
+                    $results['deployer_error'] = 'cURL error: ' . $curlError;
+                } elseif ($httpCode === 200) {
+                    $results['deployer_api'] = true;
+                } else {
+                    $results['deployer_error'] = 'HTTP ' . $httpCode . ': ' . substr($response, 0, 100);
+                }
+            } catch (\Exception $e) {
+                $results['deployer_error'] = $e->getMessage();
             }
+        } else {
+            $results['deployer_error'] = 'URL or API key not configured';
+        }
 
-            // Test Webshop
-            $webshopUrl = $this->appConfig->getAppValue('webshop_url', '');
+        // Test Webshop
+        $webshopUrl = $this->appConfig->getAppValue('webshop_url', '');
 
-            if (!empty($webshopUrl)) {
+        if (!empty($webshopUrl)) {
+            try {
                 $ch = curl_init($webshopUrl);
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT => 10,
-                    CURLOPT_NOBODY => true
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
+                    CURLOPT_NOBODY => true,
+                    CURLOPT_FOLLOWLOCATION => true
                 ]);
 
                 curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
                 curl_close($ch);
 
-                $results['webshop_reachable'] = ($httpCode >= 200 && $httpCode < 400);
+                if ($curlError) {
+                    $results['webshop_error'] = 'cURL error: ' . $curlError;
+                } elseif ($httpCode >= 200 && $httpCode < 400) {
+                    $results['webshop_reachable'] = true;
+                } else {
+                    $results['webshop_error'] = 'HTTP ' . $httpCode;
+                }
+            } catch (\Exception $e) {
+                $results['webshop_error'] = $e->getMessage();
             }
-
-        } catch (\Exception $e) {
-            $results['error'] = $e->getMessage();
+        } else {
+            $results['webshop_error'] = 'URL not configured';
         }
 
         return new JSONResponse($results);
