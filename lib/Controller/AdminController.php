@@ -97,26 +97,31 @@ class AdminController extends Controller {
 
         if (!empty($webshopUrl)) {
             try {
-                $ch = curl_init($webshopUrl);
+                // Try to reach the WooCommerce API health endpoint
+                $testUrl = rtrim($webshopUrl, '/') . '/wp-json/wc/v3/system_status';
+
+                $ch = curl_init($testUrl);
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_TIMEOUT => 15,
                     CURLOPT_CONNECTTIMEOUT => 10,
                     CURLOPT_SSL_VERIFYPEER => false,
                     CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_NOBODY => true,
                     CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_MAXREDIRS => 5
+                    CURLOPT_MAXREDIRS => 5,
+                    CURLOPT_USERAGENT => 'Nextcloud-SubscriptionManager/1.0'
                 ]);
 
-                curl_exec($ch);
+                $response = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 $curlError = curl_error($ch);
+                $effectiveUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
                 curl_close($ch);
 
                 if ($curlError) {
-                    $results['webshop_error'] = 'cURL error: ' . $curlError;
-                } elseif ($httpCode >= 200 && $httpCode < 400) {
+                    $results['webshop_error'] = 'cURL error: ' . $curlError . ' (URL: ' . $effectiveUrl . ')';
+                } elseif ($httpCode >= 200 && $httpCode < 500) {
+                    // Accept 401/403 as "reachable" since it means the server responded
                     $results['webshop_reachable'] = true;
                 } else {
                     $results['webshop_error'] = 'HTTP ' . $httpCode;
