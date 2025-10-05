@@ -52,12 +52,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Generate shared secret
-    document.getElementById('generate-secret').addEventListener('click', function() {
-        const secret = generateRandomString(32);
-        document.getElementById('shared-secret').value = secret;
-    });
-    
     // Test connection
     testButton.addEventListener('click', function() {
         testButton.disabled = true;
@@ -101,15 +95,6 @@ document.addEventListener('DOMContentLoaded', function() {
             testButton.disabled = false;
         });
     });
-    
-    function generateRandomString(length) {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let result = '';
-        for (let i = 0; i < length; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
 });
 
 // Toggle secret visibility

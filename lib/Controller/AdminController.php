@@ -42,11 +42,57 @@ class AdminController extends Controller {
      * @NoCSRFRequired
      */
     public function testConnection(): JSONResponse {
-        // Implement connection testing logic here
-        return new JSONResponse([
+        $results = [
             'deployer_api' => false,
             'webshop_reachable' => false,
-            'error' => 'Test not implemented yet'
-        ]);
+            'error' => null
+        ];
+
+        try {
+            // Test Deployer API
+            $deployerUrl = $this->appConfig->getAppValue('deployer_api_url', '');
+            $deployerKey = $this->appConfig->getAppValue('deployer_api_key', '');
+
+            if (!empty($deployerUrl) && !empty($deployerKey)) {
+                $ch = curl_init($deployerUrl . '/health');
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 10,
+                    CURLOPT_HTTPHEADER => [
+                        'Authorization: Bearer ' . $deployerKey,
+                        'Content-Type: application/json'
+                    ]
+                ]);
+
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                $results['deployer_api'] = ($httpCode === 200);
+            }
+
+            // Test Webshop
+            $webshopUrl = $this->appConfig->getAppValue('webshop_url', '');
+
+            if (!empty($webshopUrl)) {
+                $ch = curl_init($webshopUrl);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 10,
+                    CURLOPT_NOBODY => true
+                ]);
+
+                curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                $results['webshop_reachable'] = ($httpCode >= 200 && $httpCode < 400);
+            }
+
+        } catch (\Exception $e) {
+            $results['error'] = $e->getMessage();
+        }
+
+        return new JSONResponse($results);
     }
 }
