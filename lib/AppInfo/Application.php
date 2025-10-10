@@ -14,7 +14,11 @@ class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
-        // Register services
+        // Register admin section
+        $context->registerSettingsSection(\OCA\SubscriptionManager\Settings\AdminSection::class);
+
+        // Register admin settings
+        $context->registerSettings(\OCA\SubscriptionManager\Settings\Admin::class);
     }
 
     public function boot(IBootContext $context): void {

@@ -26,7 +26,7 @@ class Admin implements ISettings {
     }
 
     public function getSection(): string {
-        return 'additional';
+        return 'subscriptionmanager';
     }
 
     public function getPriority(): int {
